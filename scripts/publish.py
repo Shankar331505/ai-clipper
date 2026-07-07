@@ -120,7 +120,8 @@ def create_video_post(channel_id: str, service: str, title: str, text: str, vide
         variables["input"]["metadata"] = {
             "youtube": {
                 "title": title[:100],  # YouTube title limit is 100 characters
-                "privacy": "public"
+                "privacy": "public",
+                "categoryId": "22"    # Default: People & Blogs
             }
         }
 

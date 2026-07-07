@@ -24,18 +24,24 @@ def get_average_face_center(video_path: str) -> float:
     centers = []
     frame_idx = 0
 
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    # Sample at most 50 frames uniformly to keep execution fast
+    sample_interval = max(1, total_frames // 50)
+
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
-        # Sample every 5th frame to keep this fast
-        if frame_idx % 5 == 0:
+        if frame_idx % sample_interval == 0:
             h, w, _ = frame.shape
             results = mp_face.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             if results.detections:
                 box = results.detections[0].location_data.relative_bounding_box
                 cx = box.xmin + box.width / 2
                 centers.append(cx)
+            # Exiting early after 25 detected face coordinates is enough for an accurate average
+            if len(centers) >= 25:
+                break
         frame_idx += 1
 
     cap.release()

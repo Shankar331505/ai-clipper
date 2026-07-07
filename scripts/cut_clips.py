@@ -21,16 +21,17 @@ def cut_clips(source_video: str, clips_path: str, transcript_path: str):
         end = clip["end_time"]
         out_path = f"{OUTPUT_DIR}/clip_{clip_id}.mp4"
 
+        duration = end - start
         cmd = [
             "ffmpeg", "-y",
-            "-i", source_video,
             "-ss", str(start),
-            "-to", str(end),
+            "-t", str(duration),
+            "-i", source_video,
             "-c:v", "libx264",
             "-c:a", "aac",
             out_path,
         ]
-        print(f"Cutting clip {clip_id}: {start:.1f}s - {end:.1f}s")
+        print(f"Cutting clip {clip_id}: {start:.1f}s - {end:.1f}s (duration: {duration:.1f}s)")
         subprocess.run(cmd, check=True)
 
         clip["clip_id"] = clip_id

@@ -12,8 +12,24 @@ import subprocess
 import cv2
 import mediapipe as mp
 import numpy as np
+import random
 
 OUTPUT_DIR = "output"
+GAMEPLAY_PATH = "gameplay.mp4"
+
+
+def get_video_duration(video_path: str) -> float:
+    """Returns the duration of the video in seconds using OpenCV."""
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        return 0.0
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    cap.release()
+    if fps > 0:
+        return float(frames / fps)
+    return 0.0
+
 
 mp_face = mp.solutions.face_detection.FaceDetection(min_detection_confidence=0.5)
 
@@ -55,20 +71,57 @@ def reframe_clip(input_path: str, output_path: str):
     center_frac = get_average_face_center(input_path)
     print(f"{input_path}: average face center at {center_frac:.2f} of width")
 
-    # Crop to 1:1 square centered around the average face, scale to 1080x1080, and overlay in the center of a black 1080x1920 canvas
-    filter_complex = (
-        f"[0:v]crop=ih:ih:max(0\\,min(iw-ih\\,iw*{center_frac}-ih/2)):0,scale=1080:1080[cropped];"
-        "color=c=black:s=1080x1920[bg];"
-        "[bg][cropped]overlay=y=(main_h-overlay_h)/2:shortest=1"
-    )
+    if os.path.exists(GAMEPLAY_PATH):
+        # We have the gameplay background video! Stack them vertically
+        print(f"Using gameplay background from: {GAMEPLAY_PATH}")
 
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", input_path,
-        "-filter_complex", filter_complex,
-        "-c:a", "copy",
-        output_path,
-    ]
+        # 1. Get durations
+        clip_dur = get_video_duration(input_path)
+        gp_dur = get_video_duration(GAMEPLAY_PATH)
+
+        # 2. Select a random offset from the gameplay video
+        max_start = max(0.0, gp_dur - clip_dur - 2.0)
+        gp_start = random.uniform(0.0, max_start) if max_start > 0 else 0.0
+
+        # FFmpeg filter:
+        # - Top clip: Widescreen crop to 3:2 (ih*3/2 by ih) centered around face, scaled to 1080x720, overlayed at y=240 on 1080x1920 black canvas
+        # - Bottom gameplay: Gameplay video scaled/cropped to exactly 1080x720, overlayed at y=960
+        filter_complex = (
+            f"[0:v]crop=ih*3/2:ih:max(0\\,min(iw-ih*3/2\\,iw*{center_frac}-ih*3/4)):0,scale=1080:720[top];"
+            f"[1:v]scale=1080:720:force_original_aspect_ratio=increase,crop=1080:720[bottom];"
+            f"color=c=black:s=1080x1920[bg];"
+            f"[bg][top]overlay=y=240:shortest=1[temp];"
+            f"[temp][bottom]overlay=y=960[v]"
+        )
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", input_path,
+            "-ss", f"{gp_start:.2f}",
+            "-t", f"{clip_dur:.2f}",
+            "-i", GAMEPLAY_PATH,
+            "-filter_complex", filter_complex,
+            "-map", "[v]",
+            "-map", "0:a",  # Map only the main video's audio
+            "-c:a", "copy",
+            output_path,
+        ]
+    else:
+        # Fallback to square-centered layout with black background if no gameplay video is available
+        print("No gameplay file found at gameplay.mp4. Falling back to centered-square layout.")
+        filter_complex = (
+            f"[0:v]crop=ih:ih:max(0\\,min(iw-ih\\,iw*{center_frac}-ih/2)):0,scale=1080:1080[cropped];"
+            "color=c=black:s=1080x1920[bg];"
+            "[bg][cropped]overlay=y=(main_h-overlay_h)/2:shortest=1"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", input_path,
+            "-filter_complex", filter_complex,
+            "-c:a", "copy",
+            output_path,
+        ]
+
     subprocess.run(cmd, check=True)
 
 

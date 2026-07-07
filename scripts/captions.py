@@ -20,7 +20,7 @@ PlayResY: 1920
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, Bold, Outline, Shadow, Alignment, MarginL, MarginR, MarginV
-Style: Default,Liberation Sans,76,&H00FFFFFF,&H00000000,1,4,1,2,60,60,820
+Style: Default,Liberation Sans,68,&H00FFFFFF,&H00000000,1,3,0,2,60,60,1160
 
 [Events]
 Format: Layer, Start, End, Style, Text
@@ -72,7 +72,7 @@ def build_ass_for_clip(transcript: dict, clip_start: float, clip_end: float, out
 
             text_parts = []
             for idx, w in enumerate(chunk):
-                word_str = w["word"].strip().upper()
+                word_str = w["word"].strip()
                 if idx == j:
                     # Highlight the spoken word in bright neon green (&H2BFB3E&)
                     text_parts.append(f"{{\\c&H2BFB3E&}}{word_str}{{\\c&HFFFFFF&}}")

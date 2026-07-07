@@ -50,7 +50,7 @@ jobs:
         run: yt-dlp -v || true
 
       - name: Ingest source video
-        run: yt-dlp --no-cache-dir --cookies cookies.txt --extractor-args "youtube:player_client=web" --remote-components ejs:github -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best" --merge-output-format mp4 -o "source.mp4" "${{ inputs.video_url }}"
+        run: yt-dlp --no-cache-dir --cookies cookies.txt --extractor-args "youtube:player_client=web_safari,web" --remote-components ejs:github -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best" --merge-output-format mp4 -o "source.mp4" "${{ inputs.video_url }}"
 
       - name: Ingest gameplay video (optional)
         run: |

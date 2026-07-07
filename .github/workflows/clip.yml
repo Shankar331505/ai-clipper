@@ -55,7 +55,7 @@ jobs:
               echo "Installing gdown..."
               pip install gdown
               echo "Downloading gameplay from Drive link..."
-              gdown "$GAMEPLAY_URL" -o gameplay.mp4 || echo "gdown download failed, proceeding without gameplay"
+              gdown "$GAMEPLAY_URL" -O gameplay.mp4 || echo "gdown download failed, proceeding without gameplay"
             fi
           fi
 

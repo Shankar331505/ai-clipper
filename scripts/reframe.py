@@ -59,7 +59,7 @@ def reframe_clip(input_path: str, output_path: str):
     filter_complex = (
         f"[0:v]crop=ih:ih:max(0\\,min(iw-ih\\,iw*{center_frac}-ih/2)):0,scale=1080:1080[cropped];"
         "color=c=black:s=1080x1920[bg];"
-        "[bg][cropped]overlay=y=(main_h-overlay_h)/2"
+        "[bg][cropped]overlay=y=(main_h-overlay_h)/2:shortest=1"
     )
 
     cmd = [

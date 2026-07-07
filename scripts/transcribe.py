@@ -68,9 +68,12 @@ def transcribe(input_path: str, output_path: str):
     with open(output_path, "w") as out:
         json.dump(result, out, indent=2)
 
+    segments = result.get('segments') or []
     print(f"Transcript saved to {output_path}")
     print(f"Duration: {result.get('duration', 'unknown')}s, "
-          f"segments: {len(result.get('segments', []))}")
+          f"segments: {len(segments)}")
+    if not segments:
+        print("Warning: No speech or transcription segments were detected in the audio. The video might be silent or contain no dialogue.")
 
 
 if __name__ == "__main__":

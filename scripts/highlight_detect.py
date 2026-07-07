@@ -27,7 +27,7 @@ Return 3 to 6 clips. Each clip should be 20-60 seconds long."""
 
 
 def build_transcript_text(transcript: dict) -> str:
-    segments = transcript.get("segments", [])
+    segments = transcript.get("segments") or []
     lines = []
     for seg in segments:
         lines.append(f"[{seg['start']:.1f}-{seg['end']:.1f}] {seg['text'].strip()}")

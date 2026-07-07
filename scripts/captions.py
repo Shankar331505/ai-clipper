@@ -39,8 +39,8 @@ def extract_all_words(transcript: dict) -> list:
     if transcript.get("words"):
         return transcript["words"]
     words = []
-    for seg in transcript.get("segments", []):
-        words.extend(seg.get("words", []))
+    for seg in (transcript.get("segments") or []):
+        words.extend(seg.get("words") or [])
     return words
 
 

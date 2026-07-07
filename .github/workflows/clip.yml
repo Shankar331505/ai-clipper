@@ -52,10 +52,6 @@ jobs:
       - name: Ingest source video
         run: yt-dlp --no-cache-dir --cookies cookies.txt --extractor-args "youtube:player_client=web_safari,web" --remote-components ejs:github -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best" --merge-output-format mp4 -o "source.mp4" "${{ inputs.video_url }}"
 
-      - name: Remove cookies file
-        if: always()
-        run: rm -f cookies.txt
-
       - name: Transcribe with Whisper (Groq)
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -71,6 +67,10 @@ jobs:
 
       - name: Reframe to 9:16 (downloads random gameplay per clip)
         run: python scripts/reframe.py
+
+      - name: Remove cookies file
+        if: always()
+        run: rm -f cookies.txt
 
       - name: Generate titles + hashtags
         env:

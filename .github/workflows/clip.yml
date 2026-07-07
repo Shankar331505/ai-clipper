@@ -43,21 +43,26 @@ jobs:
       - name: Ingest source video
         run: yt-dlp --cookies cookies.txt --js-runtimes node --extractor-args "youtube:player_client=default,tv" -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best" --merge-output-format mp4 -o "source.mp4" "${{ inputs.video_url }}"
 
-      - name: Remove cookies file
-        if: always()
-        run: rm -f cookies.txt
-
       - name: Ingest gameplay video (optional)
         run: |
           if [ -f gameplay ]; then
             GAMEPLAY_URL=$(cat gameplay | tr -d '\r\n')
             if [ ! -z "$GAMEPLAY_URL" ]; then
-              echo "Installing gdown..."
-              pip install gdown
-              echo "Downloading gameplay from Drive link..."
-              gdown "$GAMEPLAY_URL" -O gameplay.mp4 || echo "gdown download failed, proceeding without gameplay"
+              if [[ "$GAMEPLAY_URL" == *"youtube.com"* || "$GAMEPLAY_URL" == *"youtu.be"* ]]; then
+                echo "Downloading gameplay from YouTube link..."
+                yt-dlp --cookies cookies.txt --js-runtimes node --extractor-args "youtube:player_client=default,tv" --download-sections "*00:00-10:00" -f "bestvideo[height<=720]+bestaudio/best[height<=720]/best" --merge-output-format mp4 -o "gameplay.mp4" "$GAMEPLAY_URL" || echo "yt-dlp gameplay download failed, proceeding without gameplay"
+              else
+                echo "Installing gdown..."
+                pip install gdown
+                echo "Downloading gameplay from Drive link..."
+                gdown "$GAMEPLAY_URL" -O gameplay.mp4 || echo "gdown download failed, proceeding without gameplay"
+              fi
             fi
           fi
+
+      - name: Remove cookies file
+        if: always()
+        run: rm -f cookies.txt
 
       - name: Transcribe with Whisper (Groq)
         env:

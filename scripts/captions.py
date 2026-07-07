@@ -1,9 +1,10 @@
 """
 Generate styled .ass subtitles from Whisper word-level timestamps and burn
-them into each reframed clip.
+them into each reframed clip. Also renders hook_text as a context banner
+above the main video (in the top black bar area).
 
 Usage: python captions.py
-(reads output/reframed_*.mp4, output/../clips.json, ../transcript.json)
+(reads output/reframed_*.mp4, clips.json, transcript.json, metadata.json)
 """
 import glob
 import json
@@ -51,7 +52,6 @@ def build_ass_for_clip(transcript: dict, clip_start: float, clip_end: float, out
 
     lines = [ASS_HEADER]
 
-    # Group words into ~3-word chunks for readable on-screen captions
     chunk_size = 3
     for i in range(0, len(words), chunk_size):
         chunk = words[i:i + chunk_size]
@@ -61,12 +61,10 @@ def build_ass_for_clip(transcript: dict, clip_start: float, clip_end: float, out
         chunk_start = chunk[0]["start"] - clip_start
         chunk_end = chunk[-1]["end"] - clip_start
 
-        # Generate separate subtitle events for each word in the chunk to achieve highlight animation
         for j in range(len(chunk)):
             seg_start = chunk[j]["start"] - clip_start if j > 0 else chunk_start
             seg_end = chunk[j+1]["start"] - clip_start if j < len(chunk) - 1 else chunk_end
 
-            # Ensure start < end
             if seg_start >= seg_end:
                 seg_end = seg_start + 0.1
 
@@ -74,7 +72,6 @@ def build_ass_for_clip(transcript: dict, clip_start: float, clip_end: float, out
             for idx, w in enumerate(chunk):
                 word_str = w["word"].strip()
                 if idx == j:
-                    # Highlight the spoken word in bright neon green (&H2BFB3E&)
                     text_parts.append(f"{{\\c&H2BFB3E&}}{word_str}{{\\c&HFFFFFF&}}")
                 else:
                     text_parts.append(word_str)
@@ -88,25 +85,29 @@ def build_ass_for_clip(transcript: dict, clip_start: float, clip_end: float, out
         f.write("\n".join(lines))
 
 
+def burn_captions(video_path: str, ass_path: str, hook_text: str, output_path: str):
+    """Burns ASS captions and a hook_text banner into the video.
 
-def burn_captions(video_path: str, ass_path: str, title_text: str, output_path: str):
+    hook_text is the 1-2 line context that appears above the main video
+    (e.g. 'KSI is shocked seeing sparkling water tap at lords stadium')
+    """
     vf_filter = f"ass={ass_path}"
 
     temp_title_path = None
-    if title_text:
-        # Wrap title text to fit within the box (max 32 chars per line)
-        wrapped_title = "\n".join(textwrap.wrap(title_text, width=32))
+    if hook_text:
+        # Wrap hook text to fit within the top bar (max 32 chars per line)
+        wrapped_title = "\n".join(textwrap.wrap(hook_text, width=32))
 
         # Save to a temp file to avoid escaping issues in FFmpeg drawtext
         temp_title_path = f"temp_title_{os.path.basename(output_path)}.txt"
         with open(temp_title_path, "w", encoding="utf-8") as f:
             f.write(wrapped_title)
 
-        # drawtext: white box, black bold text, centered in the top 420px black bar
+        # drawtext: white box, black bold text, centered in the top 240px black bar
         drawtext_filter = (
-            f"drawtext=textfile={temp_title_path}:fontcolor=black:fontsize=48:"
-            f"font='Liberation Sans Bold':x=(w-text_w)/2:y=(420-text_h)/2:"
-            f"box=1:boxcolor=white:boxborderw=20"
+            f"drawtext=textfile={temp_title_path}:fontcolor=black:fontsize=44:"
+            f"font='Liberation Sans Bold':x=(w-text_w)/2:y=(240-text_h)/2:"
+            f"box=1:boxcolor=white:boxborderw=16"
         )
         vf_filter = f"{drawtext_filter},{vf_filter}"
 
@@ -133,12 +134,12 @@ def main():
     with open("transcript.json") as f:
         transcript = json.load(f)
 
-    # Load metadata.json to map clip_id to its generated title
+    # Load metadata.json to map clip_id to its generated hook_text
     metadata_map = {}
     if os.path.exists("metadata.json"):
         with open("metadata.json") as f:
             metadata = json.load(f)
-            metadata_map = {item["clip_id"]: item for item in metadata}
+        metadata_map = {item["clip_id"]: item for item in metadata}
 
     for clip in clips:
         clip_id = clip["clip_id"]
@@ -150,17 +151,17 @@ def main():
         ass_path = f"{OUTPUT_DIR}/captions_{clip_id}.ass"
         final_path = f"{OUTPUT_DIR}/final_{clip_id}.mp4"
 
-        # Get generated title for the headline banner
+        # Get hook_text for the context banner above the video
         meta = metadata_map.get(clip_id, {})
-        title_text = meta.get("title", "")
+        hook_text = meta.get("hook_text", "")
 
         build_ass_for_clip(transcript, clip["start_time"], clip["end_time"], ass_path)
-        burn_captions(reframed_path, ass_path, title_text, final_path)
+        burn_captions(reframed_path, ass_path, hook_text, final_path)
 
         clip["final_path"] = final_path
         if clip_id in metadata_map:
             metadata_map[clip_id]["final_path"] = final_path
-        print(f"Captioned -> {final_path}")
+        print(f"Captioned -> {final_path} (hook: {hook_text})")
 
     with open("clips.json", "w") as f:
         json.dump(clips, f, indent=2)

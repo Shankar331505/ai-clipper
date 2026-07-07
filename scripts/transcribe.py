@@ -46,11 +46,12 @@ def transcribe(input_path: str, output_path: str):
     try:
         with open(audio_path, "rb") as f:
             files = {"file": f}
-            data = {
-                "model": "whisper-large-v3-turbo",
-                "response_format": "verbose_json",
-                "timestamp_granularities[]": "word",
-            }
+            data = [
+                ("model", "whisper-large-v3-turbo"),
+                ("response_format", "verbose_json"),
+                ("timestamp_granularities[]", "word"),
+                ("timestamp_granularities[]", "segment"),
+            ]
             headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
 
             print(f"Uploading {audio_path} to Groq Whisper...")
@@ -73,7 +74,9 @@ def transcribe(input_path: str, output_path: str):
     print(f"Duration: {result.get('duration', 'unknown')}s, "
           f"segments: {len(segments)}")
     if not segments:
-        print("Warning: No speech or transcription segments were detected in the audio. The video might be silent or contain no dialogue.")
+        print("Error: No speech or transcription segments were detected in the audio.")
+        print("This clipping software requires spoken dialogue to detect highlights.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ PlayResY: 1920
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, Bold, Outline, Shadow, Alignment, MarginL, MarginR, MarginV
-Style: Default,Liberation Sans,68,&H00FFFFFF,&H00000000,1,3,0,2,60,60,1160
+Style: Default,Liberation Sans,68,&H00FFFFFF,&H00000000,1,3,0,2,60,60,1010
 
 [Events]
 Format: Layer, Start, End, Style, Text

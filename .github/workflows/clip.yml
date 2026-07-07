@@ -1,0 +1,68 @@
+name: AI Video Clipper
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'Source video URL (YouTube link, etc.)'
+        required: true
+        type: string
+
+jobs:
+  clip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ingest source video
+        run: yt-dlp -f "bestvideo[height<=720]+bestaudio" -o "source.mp4" "${{ inputs.video_url }}"
+
+      - name: Transcribe with Whisper (Groq)
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python scripts/transcribe.py source.mp4 transcript.json
+
+      - name: Detect highlight clips (Claude)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/highlight_detect.py transcript.json clips.json
+
+      - name: Cut clips
+        run: python scripts/cut_clips.py source.mp4 clips.json transcript.json
+
+      - name: Reframe to 9:16
+        run: python scripts/reframe.py
+
+      - name: Burn in captions
+        run: python scripts/captions.py
+
+      - name: Generate titles + hashtags
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/generate_metadata.py clips.json metadata.json
+
+      - name: Publish via Buffer
+        env:
+          BUFFER_ACCESS_TOKEN: ${{ secrets.BUFFER_ACCESS_TOKEN }}
+        run: python scripts/publish.py metadata.json
+
+      - name: Upload final clips as artifact (backup / debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-clips
+          path: output/*.mp4
+          retention-days: 7

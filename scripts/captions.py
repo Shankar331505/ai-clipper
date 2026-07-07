@@ -158,11 +158,16 @@ def main():
         burn_captions(reframed_path, ass_path, title_text, final_path)
 
         clip["final_path"] = final_path
+        if clip_id in metadata_map:
+            metadata_map[clip_id]["final_path"] = final_path
         print(f"Captioned -> {final_path}")
-
 
     with open("clips.json", "w") as f:
         json.dump(clips, f, indent=2)
+
+    if metadata_map:
+        with open("metadata.json", "w") as f:
+            json.dump(list(metadata_map.values()), f, indent=2)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """
 Generate a title, hook text, and hashtags for each clip using Claude.
-Usage: python generate_metadata.py <clips_json> <metadata_output_json>
+Usage: python generate_metadata.py <clips.json> <metadata.json>
 """
 import sys
 import os
@@ -14,11 +14,14 @@ SYSTEM_PROMPT = """You write short-form video metadata for YouTube Shorts / \
 Instagram Reels. Given a clip's reason/context, respond ONLY with JSON, no \
 markdown fences:
 {
-  "title": "<punchy title under 60 characters>",
-  "hook_text": "<on-screen hook text overlay, under 8 words>",
+  "title": "<catchy title, max 60 chars>",
+  "hook_text": "<1-2 line attention-grabbing context sentence that appears above the video, like 'KSI is shocked seeing sparkling water tap water in lords stadium'. Make it descriptive of what's happening in the clip, written in 3rd person. Max 80 chars>",
   "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"]
-}"""
+}
 
+IMPORTANT: The hook_text must be unique and specific to each clip. It should describe 
+the exact moment/reaction/event happening in that clip. Think of it as a headline 
+that makes someone stop scrolling."""
 
 def generate_metadata(clips_path: str, output_path: str):
     with open(clips_path) as f:
@@ -55,13 +58,13 @@ def generate_metadata(clips_path: str, output_path: str):
         meta["final_path"] = clip.get("final_path")
         results.append(meta)
         print(f"Generated metadata for {clip_id}: {meta['title']}")
+        print(f"  Hook text: {meta.get('hook_text', 'N/A')}")
 
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
 
-
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python generate_metadata.py <clips_json> <metadata_output_json>")
+        print("Usage: python generate_metadata.py <clips.json> <metadata.json>")
         sys.exit(1)
     generate_metadata(sys.argv[1], sys.argv[2])

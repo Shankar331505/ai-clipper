@@ -15,13 +15,17 @@ Instagram Reels. Given a clip's reason/context, respond ONLY with JSON, no \
 markdown fences:
 {
   "title": "<catchy title, max 60 chars>",
-  "hook_text": "<1-2 line attention-grabbing context sentence that appears above the video, like 'KSI is shocked seeing sparkling water tap water in lords stadium'. Make it descriptive of what's happening in the clip, written in 3rd person. Max 80 chars>",
+  "hook_text": "<EXACTLY 5-6 words. Must be a COMPLETE thought. This is the attention-grabbing context line shown above the video. Examples: 'KSI shocked by sparkling water tap', 'Drake caught texting during interview', 'Logan Paul loses bet on stream', 'Ronaldo refuses to shake hands'. NEVER exceed 6 words. NEVER leave it incomplete or cut off mid-sentence.>",
   "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"]
 }
 
-IMPORTANT: The hook_text must be unique and specific to each clip. It should describe 
-the exact moment/reaction/event happening in that clip. Think of it as a headline 
-that makes someone stop scrolling."""
+CRITICAL RULES FOR hook_text:
+- MUST be exactly 5 or 6 words, no more, no less
+- MUST be a complete meaningful sentence/phrase
+- MUST describe the key moment in the clip
+- Write in 3rd person present tense
+- Do NOT end mid-thought (BAD: "KSI shocked by seeing by")
+- Do NOT use filler words to pad length"""
 
 def generate_metadata(clips_path: str, output_path: str):
     with open(clips_path) as f:
@@ -54,11 +58,18 @@ def generate_metadata(clips_path: str, output_path: str):
             raw_text = raw_text.strip("`").replace("json\n", "", 1)
 
         meta = json.loads(raw_text)
+
+        # HARD CAP: enforce 6 word max on hook_text
+        hook_words = meta.get("hook_text", "").split()
+        if len(hook_words) > 6:
+            meta["hook_text"] = " ".join(hook_words[:6])
+            print(f"  WARNING: hook_text truncated to 6 words: {meta['hook_text']}")
+
         meta["clip_id"] = clip_id
         meta["final_path"] = clip.get("final_path")
         results.append(meta)
         print(f"Generated metadata for {clip_id}: {meta['title']}")
-        print(f"  Hook text: {meta.get('hook_text', 'N/A')}")
+        print(f"  Hook text ({len(meta['hook_text'].split())} words): {meta['hook_text']}")
 
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)

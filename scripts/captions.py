@@ -105,7 +105,7 @@ def burn_captions(video_path: str, ass_path: str, title_text: str, output_path: 
         # drawtext: white box, black bold text, centered in the top 420px black bar
         drawtext_filter = (
             f"drawtext=textfile={temp_title_path}:fontcolor=black:fontsize=48:"
-            f"font='Liberation Sans':style=Bold:x=(w-text_w)/2:y=(420-text_h)/2:"
+            f"font='Liberation Sans Bold':x=(w-text_w)/2:y=(420-text_h)/2:"
             f"box=1:boxcolor=white:boxborderw=20"
         )
         vf_filter = f"{drawtext_filter},{vf_filter}"

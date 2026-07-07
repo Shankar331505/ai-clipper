@@ -1,12 +1,17 @@
 """
-Publish finished clips to Buffer for scheduling to YouTube Shorts / Instagram Reels.
+Publish finished clips to Buffer using Buffer's current GraphQL API.
 
-NOTE: Buffer's API has changed over the years (classic API vs newer GraphQL API).
-Double check the current endpoint/auth format in Buffer's developer docs before
-relying on this - this script assumes the classic REST-style "create update"
-endpoint as a starting point and will likely need small adjustments.
+Buffer moved from a classic REST API to GraphQL - single endpoint,
+Bearer token auth. Docs: https://developers.buffer.com
+
+IMPORTANT: Buffer's createPost mutation needs the video at a public URL
+(assets.videos[].url) - it does not accept direct file uploads. You must
+host final_*.mp4 somewhere public first (e.g. a GitHub Release asset,
+Cloudflare R2, S3) and pass that URL to this script instead of a local path.
 
 Usage: python publish.py <metadata_json>
+Expects each metadata entry to have a "video_url" field (public URL) -
+add this after uploading final_path somewhere public.
 """
 import sys
 import os
@@ -14,52 +19,120 @@ import json
 import requests
 
 BUFFER_ACCESS_TOKEN = os.environ["BUFFER_ACCESS_TOKEN"]
-BUFFER_API_BASE = "https://api.bufferapp.com/1"
+BUFFER_API_URL = "https://api.buffer.com"
+
+HEADERS = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {BUFFER_ACCESS_TOKEN}",
+}
 
 
-def get_profile_ids() -> list:
-    resp = requests.get(
-        f"{BUFFER_API_BASE}/profiles.json",
-        params={"access_token": BUFFER_ACCESS_TOKEN},
-        timeout=30,
+def graphql_request(query: str, variables: dict = None) -> dict:
+    resp = requests.post(
+        BUFFER_API_URL,
+        headers=HEADERS,
+        json={"query": query, "variables": variables or {}},
+        timeout=60,
     )
     resp.raise_for_status()
-    profiles = resp.json()
-    return [p["id"] for p in profiles]
+    data = resp.json()
+    if "errors" in data:
+        raise RuntimeError(f"Buffer API error: {data['errors']}")
+    return data["data"]
 
 
-def publish_clip(meta: dict, profile_ids: list):
-    caption = f"{meta['title']}\n\n{' '.join(meta['hashtags'])}"
-
-    data = {
-        "text": caption,
-        "access_token": BUFFER_ACCESS_TOKEN,
+def get_organization_id() -> str:
+    query = """
+    query GetOrganizations {
+      account {
+        organizations {
+          id
+          name
+        }
+      }
     }
-    for pid in profile_ids:
-        data[f"profile_ids[]"] = pid
+    """
+    data = graphql_request(query)
+    orgs = data["account"]["organizations"]
+    if not orgs:
+        raise RuntimeError("No Buffer organizations found for this account.")
+    print(f"Using organization: {orgs[0]['name']} ({orgs[0]['id']})")
+    return orgs[0]["id"]
 
-    # NOTE: media upload via Buffer's API requires the media be hosted at a
-    # public URL, or uploaded through their media endpoint first - you'll
-    # need to upload final_path to some storage (e.g. a GitHub release asset,
-    # or S3/Cloudflare R2) and pass that URL here as media[video][url].
-    print(f"Would publish clip {meta['clip_id']}: {meta['title']}")
-    print("NOTE: wire up media hosting before this actually posts video content.")
 
-    # Example of the eventual call once media hosting is in place:
-    # resp = requests.post(f"{BUFFER_API_BASE}/updates/create.json", data=data, timeout=60)
-    # resp.raise_for_status()
-    # print(resp.json())
+def get_channel_ids(organization_id: str) -> list:
+    query = """
+    query GetChannels($organizationId: OrganizationId!) {
+      channels(input: { organizationId: $organizationId }) {
+        id
+        name
+        service
+      }
+    }
+    """
+    data = graphql_request(query, {"organizationId": organization_id})
+    channels = data["channels"]
+    for ch in channels:
+        print(f"Found channel: {ch['name']} ({ch['service']}) -> {ch['id']}")
+    return channels
+
+
+def create_video_post(channel_id: str, text: str, video_url: str, thumbnail_url: str = None):
+    mutation = """
+    mutation CreatePost($input: CreatePostInput!) {
+      createPost(input: $input) {
+        ... on PostActionSuccess {
+          post { id text }
+        }
+        ... on MutationError {
+          message
+        }
+      }
+    }
+    """
+    variables = {
+        "input": {
+            "text": text,
+            "channelId": channel_id,
+            "schedulingType": "automatic",
+            "mode": "addToQueue",
+            "assets": {
+                "videos": [
+                    {"url": video_url, "thumbnailUrl": thumbnail_url}
+                ]
+            },
+        }
+    }
+    data = graphql_request(mutation, variables)
+    result = data["createPost"]
+    if "message" in result:
+        print(f"  FAILED: {result['message']}")
+    else:
+        print(f"  Created post {result['post']['id']}")
 
 
 def main(metadata_path: str):
     with open(metadata_path) as f:
         metadata = json.load(f)
 
-    profile_ids = get_profile_ids()
-    print(f"Found {len(profile_ids)} connected Buffer profiles")
+    org_id = get_organization_id()
+    channels = get_channel_ids(org_id)
+
+    if not channels:
+        print("No connected channels found - connect a channel in Buffer first.")
+        return
 
     for meta in metadata:
-        publish_clip(meta, profile_ids)
+        if "video_url" not in meta:
+            print(f"Skipping {meta['clip_id']}: no public video_url set. "
+                  f"Upload {meta.get('final_path')} somewhere public first.")
+            continue
+
+        caption = f"{meta['title']}\n\n{' '.join(meta['hashtags'])}"
+        print(f"Publishing clip {meta['clip_id']}: {meta['title']}")
+
+        for ch in channels:
+            create_video_post(ch["id"], caption, meta["video_url"])
 
 
 if __name__ == "__main__":

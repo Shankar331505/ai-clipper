@@ -1,4 +1,3 @@
-yt-dlp
 requests
 mediapipe
 opencv-python-headless

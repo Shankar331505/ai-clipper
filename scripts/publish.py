@@ -90,17 +90,21 @@ def create_video_post(channel_id: str, text: str, video_url: str, thumbnail_url:
       }
     }
     """
+    video_asset = {"url": video_url}
+    if thumbnail_url:
+        video_asset["thumbnailUrl"] = thumbnail_url
+
     variables = {
         "input": {
             "text": text,
             "channelId": channel_id,
             "schedulingType": "automatic",
             "mode": "addToQueue",
-            "assets": {
-                "videos": [
-                    {"url": video_url, "thumbnailUrl": thumbnail_url}
-                ]
-            },
+            "assets": [
+                {
+                    "video": video_asset
+                }
+            ],
         }
     }
     data = graphql_request(mutation, variables)

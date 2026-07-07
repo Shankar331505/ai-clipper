@@ -46,20 +46,22 @@ def get_average_face_center(video_path: str) -> float:
 
 
 def reframe_clip(input_path: str, output_path: str):
-    center_frac = get_average_face_center(input_path)
-    print(f"{input_path}: average face center at {center_frac:.2f} of width")
+    print(f"Reframing {input_path} to 9:16 with a blurred background to preserve all widescreen details...")
 
-    # Crop to 9:16 based on height, positioned around the detected center
-    # crop=ih*9/16:ih:x:0  where x is computed from center_frac
-    crop_filter = (
-        f"crop=ih*9/16:ih:"
-        f"max(0\\,min(iw-ih*9/16\\,iw*{center_frac}-ih*9/32)):0"
+    # FFmpeg filter:
+    # 1. Scale video to fill 1080x1920 and blur it -> [bg]
+    # 2. Scale video to 1080 width (aspect-ratio kept, height even) -> [fg]
+    # 3. Center [fg] vertically on top of [bg]
+    filter_complex = (
+        "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:10[bg];"
+        "[0:v]scale=1080:-2[fg];"
+        "[bg][fg]overlay=y=(main_h-overlay_h)/2"
     )
 
     cmd = [
         "ffmpeg", "-y",
         "-i", input_path,
-        "-vf", crop_filter,
+        "-filter_complex", filter_complex,
         "-c:a", "copy",
         output_path,
     ]

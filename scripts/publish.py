@@ -77,7 +77,7 @@ def get_channel_ids(organization_id: str) -> list:
     return channels
 
 
-def create_video_post(channel_id: str, text: str, video_url: str, thumbnail_url: str = None):
+def create_video_post(channel_id: str, service: str, title: str, text: str, video_url: str, thumbnail_url: str = None):
     mutation = """
     mutation CreatePost($input: CreatePostInput!) {
       createPost(input: $input) {
@@ -107,6 +107,22 @@ def create_video_post(channel_id: str, text: str, video_url: str, thumbnail_url:
             ],
         }
     }
+
+    # Add service-specific metadata required by Buffer
+    if service == "instagram":
+        variables["input"]["metadata"] = {
+            "instagram": {
+                "type": "reel"
+            }
+        }
+    elif service == "youtube":
+        variables["input"]["metadata"] = {
+            "youtube": {
+                "title": title[:100],  # YouTube title limit is 100 characters
+                "privacy": "public"
+            }
+        }
+
     data = graphql_request(mutation, variables)
     result = data["createPost"]
     if "message" in result:
@@ -136,7 +152,13 @@ def main(metadata_path: str):
         print(f"Publishing clip {meta['clip_id']}: {meta['title']}")
 
         for ch in channels:
-            create_video_post(ch["id"], caption, meta["video_url"])
+            create_video_post(
+                channel_id=ch["id"],
+                service=ch["service"],
+                title=meta["title"],
+                text=caption,
+                video_url=meta["video_url"]
+            )
 
 
 if __name__ == "__main__":

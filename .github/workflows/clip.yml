@@ -57,6 +57,11 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python scripts/highlight_detect.py transcript.json clips.json
 
+      - name: Generate titles + hashtags
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/generate_metadata.py clips.json metadata.json
+
       - name: Cut clips
         run: python scripts/cut_clips.py source.mp4 clips.json transcript.json
 
@@ -65,11 +70,6 @@ jobs:
 
       - name: Burn in captions
         run: python scripts/captions.py
-
-      - name: Generate titles + hashtags
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python scripts/generate_metadata.py clips.json metadata.json
 
       - name: Upload clips to GitHub Release (for public video URLs)
         env:

@@ -9,6 +9,7 @@ import glob
 import json
 import os
 import subprocess
+import textwrap
 
 OUTPUT_DIR = "output"
 
@@ -67,15 +68,42 @@ def build_ass_for_clip(transcript: dict, clip_start: float, clip_end: float, out
         f.write("\n".join(lines))
 
 
-def burn_captions(video_path: str, ass_path: str, output_path: str):
+def burn_captions(video_path: str, ass_path: str, title_text: str, output_path: str):
+    vf_filter = f"ass={ass_path}"
+
+    temp_title_path = None
+    if title_text:
+        # Wrap title text to fit within the box (max 32 chars per line)
+        wrapped_title = "\n".join(textwrap.wrap(title_text, width=32))
+
+        # Save to a temp file to avoid escaping issues in FFmpeg drawtext
+        temp_title_path = f"temp_title_{os.path.basename(output_path)}.txt"
+        with open(temp_title_path, "w", encoding="utf-8") as f:
+            f.write(wrapped_title)
+
+        # drawtext: white box, black bold text, centered in the top 420px black bar
+        drawtext_filter = (
+            f"drawtext=textfile={temp_title_path}:fontcolor=black:fontsize=48:"
+            f"font='Liberation Sans':style=Bold:x=(w-text_w)/2:y=(420-text_h)/2:"
+            f"box=1:boxcolor=white:boxborderw=20"
+        )
+        vf_filter = f"{drawtext_filter},{vf_filter}"
+
     cmd = [
         "ffmpeg", "-y",
         "-i", video_path,
-        "-vf", f"ass={ass_path}",
+        "-vf", vf_filter,
         "-c:a", "copy",
         output_path,
     ]
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.run(cmd, check=True)
+    finally:
+        if temp_title_path and os.path.exists(temp_title_path):
+            try:
+                os.remove(temp_title_path)
+            except Exception as e:
+                print(f"Warning: Failed to clean up temp title file ({e})")
 
 
 def main():
@@ -83,6 +111,13 @@ def main():
         clips = json.load(f)
     with open("transcript.json") as f:
         transcript = json.load(f)
+
+    # Load metadata.json to map clip_id to its generated title
+    metadata_map = {}
+    if os.path.exists("metadata.json"):
+        with open("metadata.json") as f:
+            metadata = json.load(f)
+            metadata_map = {item["clip_id"]: item for item in metadata}
 
     for clip in clips:
         clip_id = clip["clip_id"]
@@ -94,11 +129,16 @@ def main():
         ass_path = f"{OUTPUT_DIR}/captions_{clip_id}.ass"
         final_path = f"{OUTPUT_DIR}/final_{clip_id}.mp4"
 
+        # Get generated title for the headline banner
+        meta = metadata_map.get(clip_id, {})
+        title_text = meta.get("title", "")
+
         build_ass_for_clip(transcript, clip["start_time"], clip["end_time"], ass_path)
-        burn_captions(reframed_path, ass_path, final_path)
+        burn_captions(reframed_path, ass_path, title_text, final_path)
 
         clip["final_path"] = final_path
         print(f"Captioned -> {final_path}")
+
 
     with open("clips.json", "w") as f:
         json.dump(clips, f, indent=2)

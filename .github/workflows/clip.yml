@@ -52,23 +52,6 @@ jobs:
       - name: Ingest source video
         run: yt-dlp --no-cache-dir --cookies cookies.txt --extractor-args "youtube:player_client=web_safari,web" --remote-components ejs:github -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best" --merge-output-format mp4 -o "source.mp4" "${{ inputs.video_url }}"
 
-      - name: Ingest gameplay video (optional)
-        run: |
-          if [ -f gameplay ]; then
-            GAMEPLAY_URL=$(cat gameplay | tr -d '\r\n')
-            if [ ! -z "$GAMEPLAY_URL" ]; then
-              if [[ "$GAMEPLAY_URL" == *"youtube.com"* || "$GAMEPLAY_URL" == *"youtu.be"* ]]; then
-                echo "Downloading gameplay from YouTube link..."
-                yt-dlp --no-cache-dir --cookies cookies.txt --extractor-args "youtube:player_client=web" --remote-components ejs:github --download-sections "*00:00-10:00" -f "bestvideo[height<=720]+bestaudio/best[height<=720]/best" --merge-output-format mp4 -o "gameplay.mp4" "$GAMEPLAY_URL" || echo "yt-dlp gameplay download failed, proceeding without gameplay"
-              else
-                echo "Installing gdown..."
-                pip install gdown
-                echo "Downloading gameplay from Drive link..."
-                gdown "$GAMEPLAY_URL" -O gameplay.mp4 || echo "gdown download failed, proceeding without gameplay"
-              fi
-            fi
-          fi
-
       - name: Remove cookies file
         if: always()
         run: rm -f cookies.txt
@@ -86,16 +69,16 @@ jobs:
       - name: Cut clips
         run: python scripts/cut_clips.py source.mp4 clips.json transcript.json
 
-      - name: Reframe to 9:16
+      - name: Reframe to 9:16 (downloads random gameplay per clip)
         run: python scripts/reframe.py
-
-      - name: Burn in captions
-        run: python scripts/captions.py
 
       - name: Generate titles + hashtags
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python scripts/generate_metadata.py clips.json metadata.json
+
+      - name: Burn in captions
+        run: python scripts/captions.py
 
       - name: Upload clips to GitHub Release (for public video URLs)
         env:

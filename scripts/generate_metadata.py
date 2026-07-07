@@ -31,7 +31,8 @@ def generate_metadata(clips_path: str, output_path: str):
     }
 
     results = []
-    for clip in clips:
+    for i, clip in enumerate(clips):
+        clip_id = clip.get("clip_id") or f"{i+1:03d}"
         body = {
             "model": "claude-sonnet-5",
             "max_tokens": 500,
@@ -50,10 +51,10 @@ def generate_metadata(clips_path: str, output_path: str):
             raw_text = raw_text.strip("`").replace("json\n", "", 1)
 
         meta = json.loads(raw_text)
-        meta["clip_id"] = clip["clip_id"]
+        meta["clip_id"] = clip_id
         meta["final_path"] = clip.get("final_path")
         results.append(meta)
-        print(f"Generated metadata for {clip['clip_id']}: {meta['title']}")
+        print(f"Generated metadata for {clip_id}: {meta['title']}")
 
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)

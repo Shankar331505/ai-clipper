@@ -24,8 +24,21 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg and fonts
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg fontconfig
+          # Install MS core fonts (includes Impact as fallback)
+          echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
+          sudo apt-get install -y ttf-mscorefonts-installer 2>/dev/null || true
+          # Install The Bold Font from repo (if user added it to fonts/ directory)
+          if [ -d fonts ]; then
+            sudo mkdir -p /usr/local/share/fonts/custom
+            sudo cp fonts/*.ttf /usr/local/share/fonts/custom/ 2>/dev/null || true
+            sudo cp fonts/*.otf /usr/local/share/fonts/custom/ 2>/dev/null || true
+          fi
+          sudo fc-cache -f
+          # Debug: list available bold fonts
+          fc-list :style=Bold --format="%{family}\n" | sort -u | head -20
 
       - name: Install Python dependencies
         run: |

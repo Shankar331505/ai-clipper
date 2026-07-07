@@ -37,11 +37,16 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Set up Deno (for yt-dlp JS challenge solving)
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v1.x
+
       - name: Decode YouTube cookies
         run: echo "${{ secrets.YT_COOKIES_B64 }}" | base64 -d > cookies.txt
 
       - name: Ingest source video
-        run: yt-dlp --no-cache-dir --cookies cookies.txt --js-runtimes node --extractor-args "youtube:player_client=default,tv" -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best" --merge-output-format mp4 -o "source.mp4" "${{ inputs.video_url }}"
+        run: yt-dlp --no-cache-dir --cookies cookies.txt --js-runtimes "deno,node" --extractor-args "youtube:player_client=default,tv" -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best" --merge-output-format mp4 -o "source.mp4" "${{ inputs.video_url }}"
 
       - name: Ingest gameplay video (optional)
         run: |
@@ -50,7 +55,7 @@ jobs:
             if [ ! -z "$GAMEPLAY_URL" ]; then
               if [[ "$GAMEPLAY_URL" == *"youtube.com"* || "$GAMEPLAY_URL" == *"youtu.be"* ]]; then
                 echo "Downloading gameplay from YouTube link..."
-                yt-dlp --no-cache-dir --cookies cookies.txt --js-runtimes node --extractor-args "youtube:player_client=default,tv" --download-sections "*00:00-10:00" -f "bestvideo[height<=720]+bestaudio/best[height<=720]/best" --merge-output-format mp4 -o "gameplay.mp4" "$GAMEPLAY_URL" || echo "yt-dlp gameplay download failed, proceeding without gameplay"
+                yt-dlp --no-cache-dir --cookies cookies.txt --js-runtimes "deno,node" --extractor-args "youtube:player_client=default,tv" --download-sections "*00:00-10:00" -f "bestvideo[height<=720]+bestaudio/best[height<=720]/best" --merge-output-format mp4 -o "gameplay.mp4" "$GAMEPLAY_URL" || echo "yt-dlp gameplay download failed, proceeding without gameplay"
               else
                 echo "Installing gdown..."
                 pip install gdown

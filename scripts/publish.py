@@ -112,7 +112,8 @@ def create_video_post(channel_id: str, service: str, title: str, text: str, vide
     if service == "instagram":
         variables["input"]["metadata"] = {
             "instagram": {
-                "type": "reel"
+                "type": "reel",
+                "shouldShareToFeed": True
             }
         }
     elif service == "youtube":

@@ -20,7 +20,7 @@ PlayResY: 1920
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, Bold, Outline, Shadow, Alignment, MarginL, MarginR, MarginV
-Style: Default,Arial,64,&H00FFFFFF,&H00000000,1,3,1,2,60,60,120
+Style: Default,Liberation Sans,76,&H00FFFFFF,&H00000000,1,4,1,2,60,60,820
 
 [Events]
 Format: Layer, Start, End, Style, Text
@@ -51,21 +51,42 @@ def build_ass_for_clip(transcript: dict, clip_start: float, clip_end: float, out
 
     lines = [ASS_HEADER]
 
-    # Group words into ~4-word chunks for readable on-screen captions
-    chunk_size = 4
+    # Group words into ~3-word chunks for readable on-screen captions
+    chunk_size = 3
     for i in range(0, len(words), chunk_size):
         chunk = words[i:i + chunk_size]
         if not chunk:
             continue
-        start = chunk[0]["start"] - clip_start
-        end = chunk[-1]["end"] - clip_start
-        text = " ".join(w["word"].strip() for w in chunk)
-        lines.append(
-            f"Dialogue: 0,{seconds_to_ass_time(start)},{seconds_to_ass_time(end)},Default,{text}"
-        )
 
-    with open(out_path, "w") as f:
+        chunk_start = chunk[0]["start"] - clip_start
+        chunk_end = chunk[-1]["end"] - clip_start
+
+        # Generate separate subtitle events for each word in the chunk to achieve highlight animation
+        for j in range(len(chunk)):
+            seg_start = chunk[j]["start"] - clip_start if j > 0 else chunk_start
+            seg_end = chunk[j+1]["start"] - clip_start if j < len(chunk) - 1 else chunk_end
+
+            # Ensure start < end
+            if seg_start >= seg_end:
+                seg_end = seg_start + 0.1
+
+            text_parts = []
+            for idx, w in enumerate(chunk):
+                word_str = w["word"].strip().upper()
+                if idx == j:
+                    # Highlight the spoken word in bright neon green (&H2BFB3E&)
+                    text_parts.append(f"{{\\c&H2BFB3E&}}{word_str}{{\\c&HFFFFFF&}}")
+                else:
+                    text_parts.append(word_str)
+
+            formatted_text = " ".join(text_parts)
+            lines.append(
+                f"Dialogue: 0,{seconds_to_ass_time(seg_start)},{seconds_to_ass_time(seg_end)},Default,{formatted_text}"
+            )
+
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
+
 
 
 def burn_captions(video_path: str, ass_path: str, title_text: str, output_path: str):

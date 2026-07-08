@@ -1,8 +1,11 @@
 """
 Reframe each cut clip from 16:9 to 9:16 using face-detection-guided cropping.
 Downloads a DIFFERENT random gameplay video for each clip from the gameplay file
-(which contains multiple YouTube links, one per line) and picks a random time
-offset within that gameplay video.
+(which contains multiple Google Drive / YouTube links, one per line) and picks
+a random time offset within that gameplay video.
+
+Google Drive links are preferred over YouTube — they don't need cookies and
+won't break due to YouTube's bot detection.
 
 Usage: python reframe.py
 (reads all clip_*.mp4 files from output/, writes reframed_*.mp4 in place)
@@ -55,8 +58,11 @@ def download_gameplay(url: str, index: int) -> str:
 
     print(f"Downloading gameplay video {index}: {url}")
 
-    if "youtube.com" in url or "youtu.be" in url:
-        # Use yt-dlp for YouTube links
+    if "drive.google.com" in url or "docs.google.com" in url:
+        # Google Drive link — use gdown (no cookies needed, stable)
+        cmd = ["gdown", url, "--fuzzy", "-O", cached_path]
+    elif "youtube.com" in url or "youtu.be" in url:
+        # YouTube link — use yt-dlp (needs cookies, can break)
         cookies_arg = ["--cookies", "cookies.txt"] if os.path.exists("cookies.txt") else []
         cmd = [
             "yt-dlp", "--no-cache-dir",
@@ -69,8 +75,8 @@ def download_gameplay(url: str, index: int) -> str:
             url,
         ]
     else:
-        # Assume Google Drive or direct link
-        cmd = ["gdown", url, "-O", cached_path]
+        # Direct URL or Drive file ID — try gdown (handles Drive IDs too)
+        cmd = ["gdown", url, "--fuzzy", "-O", cached_path]
 
     try:
         subprocess.run(cmd, check=True)

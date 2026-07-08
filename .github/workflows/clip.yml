@@ -45,6 +45,7 @@ jobs:
           pip install -r requirements.txt
           pip install -U --pre "yt-dlp[default]"
           pip install -U yt-dlp-ejs
+          pip install -U gdown
 
       - name: Set up Node.js (for yt-dlp JS challenge solving)
         uses: actions/setup-node@v4
